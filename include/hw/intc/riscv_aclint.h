@@ -50,7 +50,8 @@ DeviceState *riscv_aclint_mtimer_create(hwaddr addr, hwaddr size,
     uint32_t hartid_base, uint32_t num_harts,
     uint32_t timecmp_base, uint32_t time_base, uint32_t timebase_freq,
     bool provide_rdtime);
-
+uint64_t riscv_aclint_mtimer_read(void *opaque, hwaddr addr,
+    unsigned size);
 #define TYPE_RISCV_ACLINT_SWI "riscv.aclint.swi"
 
 #define RISCV_ACLINT_SWI(obj) \

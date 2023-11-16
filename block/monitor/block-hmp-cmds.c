@@ -868,7 +868,7 @@ void hmp_info_block_jobs(Monitor *mon, const QDict *qdict)
 }
 
 void hmp_info_snapshots(Monitor *mon, const QDict *qdict)
-{
+ {
     BlockDriverState *bs, *bs1;
     BdrvNextIterator it1;
     QEMUSnapshotInfo *sn_tab, *sn;

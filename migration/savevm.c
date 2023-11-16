@@ -1348,7 +1348,6 @@ int qemu_savevm_state_iterate(QEMUFile *f, bool postcopy)
         ret = se->ops->save_live_iterate(f, se->opaque);
         trace_savevm_section_end(se->idstr, se->section_id, ret);
         save_section_footer(f, se);
-
         if (ret < 0) {
             error_report("failed to save SaveStateEntry with id(name): "
                          "%d(%s): %d",

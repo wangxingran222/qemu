@@ -1098,6 +1098,7 @@ static uint32_t opcode_at(DisasContextBase *dcbase, target_ulong pc)
 #include "insn_trans/trans_svinval.c.inc"
 #include "insn_trans/trans_rvbf16.c.inc"
 #include "decode-xthead.c.inc"
+#include "checkpoint/serializer.h"
 #include "insn_trans/trans_xthead.c.inc"
 #include "insn_trans/trans_xventanacondops.c.inc"
 
@@ -1110,12 +1111,14 @@ static uint32_t opcode_at(DisasContextBase *dcbase, target_ulong pc)
 
 /* The specification allows for longer insns, but not supported by qemu. */
 #define MAX_INSN_LEN  4
-
+#include <stdio.h>
 static inline int insn_len(uint16_t first_word)
 {
     return (first_word & 3) == 3 ? 4 : 2;
 }
 
+
+long long int a = 0;
 static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 {
     /*
@@ -1133,6 +1136,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 
     ctx->virt_inst_excp = false;
     ctx->cur_insn_len = insn_len(opcode);
+    a++;
     /* Check for compressed insn */
     if (ctx->cur_insn_len == 2) {
         ctx->opcode = opcode;
@@ -1145,12 +1149,14 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
             return;
         }
     } else {
+        // serializeRegs();
         uint32_t opcode32 = opcode;
         opcode32 = deposit32(opcode32, 16, 16,
                              translator_lduw(env, &ctx->base,
                                              ctx->base.pc_next + 2));
         ctx->opcode = opcode32;
-
+        
+        
         for (size_t i = 0; i < ARRAY_SIZE(decoders); ++i) {
             if (decoders[i].guard_func(ctx->cfg_ptr) &&
                 decoders[i].decode_func(ctx, opcode32)) {
@@ -1158,7 +1164,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
             }
         }
     }
-
+    printf("gen_exception_illegal\n");
     gen_exception_illegal(ctx);
 }
 

@@ -959,25 +959,26 @@ static inline void cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
 }
 
 /* main execution loop */
-
+#include "qapi/qapi-commands-machine.h"
+#include "checkpoint/serializer.h"
+uint64_t g_nr_guest_instr = 0;
+bool take_cpt = false;
+extern bool xpoint_profiling_started;
 static int __attribute__((noinline))
 cpu_exec_loop(CPUState *cpu, SyncClocks *sc)
 {
     int ret;
-
     /* if an exception is pending, we execute it here */
     while (!cpu_handle_exception(cpu, &ret)) {
         TranslationBlock *last_tb = NULL;
         int tb_exit = 0;
-
         while (!cpu_handle_interrupt(cpu, &last_tb)) {
             TranslationBlock *tb;
             vaddr pc;
             uint64_t cs_base;
             uint32_t flags, cflags;
-
             cpu_get_tb_cpu_state(cpu->env_ptr, &pc, &cs_base, &flags);
-
+            
             /*
              * When requested, use an exact setting for cflags for the next
              * execution.  This is used for icount, precise smc, and stop-
@@ -1042,6 +1043,13 @@ cpu_exec_loop(CPUState *cpu, SyncClocks *sc)
             /* Try to align the host and virtual clocks
                if the guest is in advance */
             align_clocks(sc, cpu);
+
+            g_nr_guest_instr += tb->icount;
+            if(xpoint_profiling_started){
+                if(try_take_cpt(g_nr_guest_instr)){
+                    info_report("checkpoint ok!");
+                }
+            }
         }
     }
     return ret;

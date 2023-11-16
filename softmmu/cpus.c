@@ -790,14 +790,13 @@ void qmp_memsave(int64_t addr, int64_t size, const char *filename,
 exit:
     fclose(f);
 }
-
+#include <zlib.h>
 void qmp_pmemsave(int64_t addr, int64_t size, const char *filename,
                   Error **errp)
 {
     FILE *f;
     uint32_t l;
     uint8_t buf[1024];
-
     f = fopen(filename, "wb");
     if (!f) {
         error_setg_file_open(errp, errno, filename);
@@ -820,6 +819,34 @@ void qmp_pmemsave(int64_t addr, int64_t size, const char *filename,
 exit:
     fclose(f);
 }
+
+// void qmp_gzpmemsave(int64_t addr, int64_t size, const char *filename,
+//                   Error **errp)
+// {
+//     uint32_t l;
+//     uint8_t buf[4096];
+//     gzFile compressed_mem = gzopen(filename, "wb");
+//     if (!compressed_mem) {
+//         error_setg_file_open(errp, errno, filename);
+//         return;
+//     }
+
+//     while (size != 0) {
+//         l = sizeof(buf);
+//         if (l > size)
+//             l = size;
+//         cpu_physical_memory_read(addr, buf, l);
+//         if (gzwrite(compressed_mem, buf, (uint32_t) l) != l) {
+//             error_setg(errp, QERR_IO_ERROR);
+//             goto exit;
+//         }
+//         addr += l;
+//         size -= l;
+//     }
+// exit:
+//     gzclose(compressed_mem);
+// }
+
 
 void qmp_inject_nmi(Error **errp)
 {

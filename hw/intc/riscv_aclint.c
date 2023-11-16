@@ -121,7 +121,7 @@ static void riscv_aclint_mtimer_cb(void *opaque)
 }
 
 /* CPU read MTIMER register */
-static uint64_t riscv_aclint_mtimer_read(void *opaque, hwaddr addr,
+uint64_t riscv_aclint_mtimer_read(void *opaque, hwaddr addr,
     unsigned size)
 {
     RISCVAclintMTimerState *mtimer = opaque;
@@ -163,10 +163,12 @@ static uint64_t riscv_aclint_mtimer_read(void *opaque, hwaddr addr,
 }
 
 /* CPU write MTIMER register */
+RISCVAclintMTimerState *my_riscv_mtimer;
 static void riscv_aclint_mtimer_write(void *opaque, hwaddr addr,
     uint64_t value, unsigned size)
 {
     RISCVAclintMTimerState *mtimer = opaque;
+    my_riscv_mtimer = opaque;
     int i;
 
     if (addr >= mtimer->timecmp_base &&
