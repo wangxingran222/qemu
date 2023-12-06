@@ -15,6 +15,10 @@
 #include "exec/plugin-gen.h"
 #include "tcg/tcg-op-common.h"
 #include "internal-target.h"
+#include "internal.h"
+#include "tcg/tcg.h"
+
+static TCGv_i64 *cpu_exec_count=NULL;
 
 static void set_can_do_io(DisasContextBase *db, bool val)
 {
@@ -154,8 +158,11 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
     plugin_enabled = plugin_gen_tb_start(cpu, db, cflags & CF_MEMI_ONLY);
     db->plugin_enabled = plugin_enabled;
 
+    cpu_exec_count=ops->cpu_exec_count;
     while (true) {
         *max_insns = ++db->num_insns;
+        tcg_gen_addi_i64(*cpu_exec_count,*cpu_exec_count,1);
+
         ops->insn_start(db, cpu);
         tcg_debug_assert(db->is_jmp == DISAS_NEXT);  /* no early exit */
 
