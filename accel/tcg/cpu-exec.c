@@ -966,6 +966,7 @@ static int __attribute__((noinline))
 cpu_exec_loop(CPUState *cpu, SyncClocks *sc)
 {
     int ret;
+    CPURISCVState *env = cpu_env(cpu);
 
     /* if an exception is pending, we execute it here */
     while (!cpu_handle_exception(cpu, &ret)) {
@@ -1041,7 +1042,7 @@ cpu_exec_loop(CPUState *cpu, SyncClocks *sc)
 
             cpu_loop_exec_tb(cpu, tb, pc, &last_tb, &tb_exit);
 
-            try_take_cpt(cpu->env_ptr->profiling_insns);
+            try_take_cpt(env->profiling_insns);
             /* Try to align the host and virtual clocks
                if the guest is in advance */
             align_clocks(sc, cpu);

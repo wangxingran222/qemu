@@ -15,7 +15,6 @@
 #include "exec/plugin-gen.h"
 #include "tcg/tcg-op-common.h"
 #include "internal-target.h"
-#include "internal.h"
 #include "tcg/tcg.h"
 
 static TCGv_i64 *cpu_exec_count=NULL;
