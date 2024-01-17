@@ -10,6 +10,7 @@ tcg_ss.add(files(
   'tcg-runtime.c',
   'translate-all.c',
   'translator.c',
+  'checkpoint-gen.c',
 ))
 tcg_ss.add(when: 'CONFIG_USER_ONLY', if_true: files('user-exec.c'))
 tcg_ss.add(when: 'CONFIG_SYSTEM_ONLY', if_false: files('user-exec-stub.c'))
