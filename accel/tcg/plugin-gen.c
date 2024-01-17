@@ -702,9 +702,13 @@ static void plugin_gen_inject(struct qemu_plugin_tb *plugin_tb)
 
     pr_ops();
 
+    // for (op = &tcg_ctx->ops->tqh_first;op;op=op->field.tqe_next)
     QTAILQ_FOREACH(op, &tcg_ctx->ops, link) {
         switch (op->opc) {
         case INDEX_op_insn_start:
+            // start
+            // func
+            // end
             insn_idx++;
             break;
         case INDEX_op_plugin_cb_start:
