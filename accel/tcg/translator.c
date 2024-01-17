@@ -176,7 +176,6 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
     cpu_exec_count=ops->cpu_exec_count;
     while (true) {
         *max_insns = ++db->num_insns;
-        tcg_gen_addi_i64(*cpu_exec_count,*cpu_exec_count,1);
 
         ops->insn_start(db, cpu);
         tcg_debug_assert(db->is_jmp == DISAS_NEXT);  /* no early exit */
@@ -195,6 +194,8 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
             /* Accept I/O on the last instruction.  */
             set_can_do_io(db, true);
         }
+
+        tcg_gen_addi_i64(*cpu_exec_count,*cpu_exec_count,1);
         ops->translate_insn(db, cpu);
 
         /*
