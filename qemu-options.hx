@@ -169,10 +169,13 @@ SRST
 ERST
 
 
+DEF("checkpoint", HAS_ARG, QEMU_OPTION_boot_checkpoint,
+    "checkpoint: use checkpoint as memory\n",
+    QEMU_ARCH_RISCV)
 
 DEF("cpt-interval", HAS_ARG, QEMU_OPTION_cpt_interval,
     "cpt interval: the profiling period for simpoint; the checkpoint interval for uniform cpt\n",
-    QEMU_ARCH_ALL)
+    QEMU_ARCH_RISCV)
 
 SRST
 ``cpt interval: the profiling period for simpoint; the checkpoint interval for uniform cpt\n``
@@ -181,7 +184,7 @@ ERST
 
 DEF("simpoint-path", HAS_ARG, QEMU_OPTION_simpoint_path,
     "simpoints path\n",
-    QEMU_ARCH_ALL)
+    QEMU_ARCH_RISCV)
 
 SRST
 ``simpoint-path: simpoint result\n``
@@ -190,7 +193,7 @@ ERST
 
 DEF("checkpoint-mode", HAS_ARG, QEMU_OPTION_checkpoint_mode,
     "set will take checkpoint\n",
-    QEMU_ARCH_ALL)
+    QEMU_ARCH_RISCV)
 
 SRST
 ``checkpoint-mode: set will take checkpoint\n``
@@ -200,7 +203,7 @@ ERST
 
 DEF("workload", HAS_ARG, QEMU_OPTION_workload_name,
     "workload_name\n",
-    QEMU_ARCH_ALL)
+    QEMU_ARCH_RISCV)
 
 SRST
 ``workload\n``
@@ -209,7 +212,7 @@ ERST
 
 DEF("output-base-dir", HAS_ARG, QEMU_OPTION_output_base_dir,
     "store simpoint bbv, cpts, and stats in STAT_DIR\n",
-    QEMU_ARCH_ALL)
+    QEMU_ARCH_RISCV)
 
 SRST
 ``store simpoint bbv, cpts, and stats in STAT_DIR\n``
@@ -218,7 +221,7 @@ ERST
 
 DEF("config-name", HAS_ARG, QEMU_OPTION_config_name,
     "running configuration\n",
-    QEMU_ARCH_ALL)
+    QEMU_ARCH_RISCV)
 
 SRST
 ``running configuration\n``
