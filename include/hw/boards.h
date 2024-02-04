@@ -392,6 +392,7 @@ struct MachineState {
     uint64_t   ram_slots;
     BootConfiguration boot_config;
     char *kernel_filename;
+    char *checkpoint;
     char *kernel_cmdline;
     char *initrd_filename;
     const char *cpu_type;
