@@ -13,20 +13,13 @@ TOP_SRC_PATH = $(SRC_PATH)/../..
 VPATH += $(SRC_PATH)
 
 NAMES :=
-NAMES += execlog
-NAMES += hotblocks
-NAMES += hotpages
-NAMES += howvec
+NAMES += profiling
 
 # The lockstep example communicates using unix sockets,
 # and can't be easily made to work on windows.
 ifneq ($(CONFIG_WIN32),y)
 NAMES += lockstep
 endif
-
-NAMES += hwprofile
-NAMES += cache
-NAMES += drcov
 
 ifeq ($(CONFIG_WIN32),y)
 SO_SUFFIX := .dll
