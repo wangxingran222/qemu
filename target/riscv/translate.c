@@ -1271,8 +1271,8 @@ static void riscv_tr_disas_log(const DisasContextBase *dcbase,
 
     fprintf(logfile, "IN: %s\n", lookup_symbol(dcbase->pc_first));
 #ifndef CONFIG_USER_ONLY
-    fprintf(logfile, "Priv: "TARGET_FMT_ld"; Virt: %d\n",
-            env->priv, env->virt_enabled);
+    fprintf(logfile, "Priv: "TARGET_FMT_ld"; Virt: %d; cpu %d,\n",
+            env->priv, env->virt_enabled, cpu->cpu_index);
 #endif
     target_disas(logfile, cpu, dcbase->pc_first, dcbase->tb->size);
 }
