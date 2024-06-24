@@ -125,7 +125,7 @@ static inline uint64_t sync_limit_instructions(NEMUState *ns, uint64_t cpu_idx)
     }
 }
 
-__attribute_maybe_unused__ static int get_env_cpu_mode(uint64_t cpu_idx)
+__attribute__ ((__unused__)) static int get_env_cpu_mode(uint64_t cpu_idx)
 {
     CPUState *cs = qemu_get_cpu(cpu_idx);
     CPURISCVState *env = cpu_env(cs);
@@ -191,7 +191,7 @@ static bool sync_and_check_take_checkpoint(NEMUState *ns,
 
     int wait_cpus = 0; // executed enough instructions or halt
     int online_cpus = 0; // not exited
-    __attribute_maybe_unused__ int halt_cpus = 0; //  not exited but halt
+    __attribute__ ((__unused__)) int halt_cpus = 0; //  not exited but halt
 
     for (int i = 0; i < ns->sync_info.cpus; i++) {
         // idx i hart more than limit instructions and workload not exit, this
@@ -292,7 +292,7 @@ failed:
     return false;
 }
 
-__attribute_maybe_unused__ static void
+__attribute__ ((__unused__)) static void
 serialize(uint64_t memory_addr, int cpu_index, int cpus, uint64_t inst_count)
 {
     MachineState *ms = MACHINE(qdev_get_machine());

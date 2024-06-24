@@ -127,9 +127,7 @@ exit:
     //    cpu_physical_memory_write(CLINT_MMIO+CLINT_MTIME, &mtime, 8);
 }
 
-
-
-__attribute_maybe_unused__ void serializeRegs(int cpu_index, char *buffer, single_core_rvgc_rvv_rvh_memlayout *cpt_percpu_layout, uint64_t all_cpu_num, uint64_t arg_mtime)  {
+__attribute__ ((__unused__)) void serializeRegs(int cpu_index, char *buffer, single_core_rvgc_rvv_rvh_memlayout *cpt_percpu_layout, uint64_t all_cpu_num, uint64_t arg_mtime)  {
     // init vars
     CPUState *cs = qemu_get_cpu(cpu_index);
     RISCVCPU *cpu = RISCV_CPU(&cs->parent_obj);
