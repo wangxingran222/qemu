@@ -1,4 +1,5 @@
 #include "checkpoint/checkpoint.h"
+#include "checkpoint/directed_tbs.h"
 #include "hw/boards.h"
 #include "hw/riscv/nemu.h"
 #include "qemu/error-report.h"
@@ -35,7 +36,7 @@ void update_cpt_limit_instructions(NEMUState *ns, uint64_t icount) {
     }
 }
 
-void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_status_buffer, int buffer_size)
+void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_status_buffer, int buffer_size, Qemu2Detail *q2d_buf)
 {
 
     MachineState *ms = MACHINE(qdev_get_machine());
@@ -54,7 +55,6 @@ void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_sta
         gcpt_mmio_pmem_size += buffer_size;
     }
 
-#define FILEPATH_BUF_SIZE 1024
     char filepath[FILEPATH_BUF_SIZE];
 
     //prepare path
@@ -65,6 +65,8 @@ void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_sta
     }
     info_report("prepare for generate checkpoint path %s base_path %s inst_count %ld pmem_size %ld\n", filepath, ns->path_manager.uniform_path->str, inst_count, guest_pmem_size);
     assert(g_mkdir_with_parents(g_path_get_dirname(filepath), 0775)==0);
+    if (q2d_buf != NULL)
+        memcpy(q2d_buf->checkpoint_path, filepath, FILEPATH_BUF_SIZE);
 
 #ifdef USE_ZSTD_COMPRESS
     //zstd compress

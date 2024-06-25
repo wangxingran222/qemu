@@ -26,7 +26,7 @@ uint64_t simpoint_get_next_instructions(NEMUState *ns) {
     }
 }
 
-__attribute_maybe_unused__
+__attribute__((unused))
 static int get_env_cpu_mode(void){
     CPUState *cs = qemu_get_cpu(0);
     CPURISCVState *env = cpu_env(cs);
@@ -79,7 +79,7 @@ static bool instrsCouldTakeCpt(NEMUState *ns, uint64_t icount) {
 
 static void serialize(NEMUState *ns, uint64_t icount) {
     serializeRegs(0, ns->memory, &single_core_rvgcvh_default_memlayout, 1, 0);
-    serialize_pmem(icount, false, NULL, 0);
+    serialize_pmem(icount, false, NULL, 0, NULL);
 }
 
 static bool could_take_checkpoint(NEMUState *ns, uint64_t icount){
