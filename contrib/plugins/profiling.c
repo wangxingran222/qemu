@@ -137,6 +137,7 @@ void try_profiling(unsigned int cpu_index, void *userdata) {
   g_mutex_lock(&profiling_info.lock);
   // add all inst
   profiling_info.exec_count_all += cnt->insns;
+//  printf("from plugin exec insns %ld\n", cnt->insns);
 
   if (profiling_info.start_profiling == true) {
     // add bbv and profiling inst

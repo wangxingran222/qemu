@@ -33,10 +33,8 @@ static int get_env_cpu_mode(void){
     return env->priv;
 }
 
-static uint64_t get_kernel_insns(void){
-    CPUState *cs = qemu_get_cpu(0);
-    CPURISCVState *env = cpu_env(cs);
-    return env->last_seen_insns;
+static uint64_t get_kernel_insns(NEMUState *ns, uint64_t cpu_idx){
+    return ns->checkpoint_info.last_seen_insns[cpu_idx];
 }
 
 static bool instrsCouldTakeCpt(NEMUState *ns, uint64_t icount) {
@@ -96,7 +94,7 @@ static bool could_take_checkpoint(NEMUState *ns, uint64_t icount){
 }
 
 bool single_core_try_take_cpt(NEMUState *ns, uint64_t icount) {
-    uint64_t workload_exec_insns = icount - get_kernel_insns();
+    uint64_t workload_exec_insns = icount - get_kernel_insns(ns, 0);
     if (could_take_checkpoint(ns, workload_exec_insns)) {
         serialize(ns, workload_exec_insns);
         update_cpt_limit_instructions(ns, workload_exec_insns);

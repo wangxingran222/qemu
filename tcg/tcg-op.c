@@ -322,6 +322,15 @@ void tcg_gen_plugin_cb_end(void)
     tcg_emit_op(INDEX_op_plugin_cb_end, 0);
 }
 
+void tcg_gen_checkpoint_cb_start(void){
+    tcg_emit_op(INDEX_op_checkpoint_cb_start, 0);
+}
+
+void tcg_gen_checkpoint_cb_end(void)
+{
+    tcg_emit_op(INDEX_op_checkpoint_cb_end, 0);
+}
+
 /* 32 bit ops */
 
 void tcg_gen_discard_i32(TCGv_i32 arg)

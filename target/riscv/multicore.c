@@ -63,6 +63,9 @@ void multicore_checkpoint_init(MachineState *machine)
     ns->sync_info.workload_insns = g_malloc0(cpus * sizeof(uint64_t));
     ns->sync_info.early_exit = g_malloc0(cpus * sizeof(bool));
     ns->sync_info.checkpoint_end = g_malloc0(cpus * sizeof(bool));
+    ns->checkpoint_info.exec_insns = g_malloc0(sizeof(uint64_t) * cpus);
+    ns->checkpoint_info.last_seen_insns = g_malloc0(sizeof(uint64_t) * cpus);
+    ns->checkpoint_info.kernel_insns = g_malloc0(sizeof(uint64_t) * cpus);
 
     if (ns->checkpoint_info.checkpoint_mode == SyncUniformCheckpoint) {
         const char *detail_to_qemu_fifo_name = "./detail_to_qemu.fifo";
@@ -79,17 +82,13 @@ void multicore_checkpoint_init(MachineState *machine)
     g_mutex_unlock(&sync_lock);
 }
 
-static inline uint64_t relative_kernel_exec_insns(int cpu_index){
-    CPUState *cs = qemu_get_cpu(cpu_index);
-    CPURISCVState *env = cpu_env(cs);
-    return env->profiling_insns - env->kernel_insns;
+static inline uint64_t relative_kernel_exec_insns(NEMUState *ns, int cpu_index){
+    return ns->checkpoint_info.exec_insns[cpu_index] - ns->checkpoint_info.kernel_insns[cpu_index];
 }
 
-static inline uint64_t relative_last_sync_insns(int cpu_index){
-    CPUState *cs = qemu_get_cpu(cpu_index);
-    CPURISCVState *env = cpu_env(cs);
+static inline uint64_t relative_last_sync_insns(NEMUState *ns, int cpu_index){
     // simpoint checkpoint never update last_seen_insns when before_workload exec
-    return env->profiling_insns - env->last_seen_insns;
+    return ns->checkpoint_info.exec_insns[cpu_index] - ns->checkpoint_info.last_seen_insns[cpu_index];
 }
 
 static inline uint64_t cpt_limit_instructions(NEMUState *ns)
@@ -155,14 +154,14 @@ static bool sync_and_check_take_checkpoint(NEMUState *ns,
         goto failed;
     }
 
-    if (ns->sync_info.workload_exit_percpu[cpu_idx] == 0x1) {
-#ifndef NO_PRINT
-        if (r < 10) {
-            fprintf(stderr, "%s: cpu %ld has exited\n", __func__, cpu_idx);
-        }
-#endif
-        goto failed;
-    }
+//    if (ns->sync_info.workload_exit_percpu[cpu_idx] == 0x1) {
+//#ifndef NO_PRINT
+//        if (r < 10) {
+//            fprintf(stderr, "%s: cpu %ld has exited\n", __func__, cpu_idx);
+//        }
+//#endif
+//        goto failed;
+//    }
 
     // all cpu check, do not wait other core exec before workload
     for (int i = 0; i < ns->sync_info.cpus; i++) {
@@ -206,7 +205,7 @@ static bool sync_and_check_take_checkpoint(NEMUState *ns,
         }
 
         // halt or workload insns >= sync limit -> goto wait
-        if (halt || relative_last_sync_insns(i) >= sync_limit_instructions(ns, i)) {
+        if (halt || relative_last_sync_insns(ns, i) >= sync_limit_instructions(ns, i)) {
 //            info_report("sync_limit instructions %ld relative exec insn %ld", sync_limit_instructions(ns, i), relative_last_sync_insns(i));
             if (ns->sync_info.workload_exit_percpu[i] != 0x1) {
                 wait_cpus += 1;
@@ -218,8 +217,8 @@ static bool sync_and_check_take_checkpoint(NEMUState *ns,
     if (early_exit) {
         ns->sync_info.early_exit[cpu_idx] = true;
     // if not get early wait but get limit instructions, could go on
-    } else if (relative_last_sync_insns(cpu_idx) >= sync_limit_instructions(ns, cpu_idx)) {
-        ns->sync_info.workload_insns[cpu_idx] = relative_last_sync_insns(cpu_idx);
+    } else if (relative_last_sync_insns(ns, cpu_idx) >= sync_limit_instructions(ns, cpu_idx)) {
+        ns->sync_info.workload_insns[cpu_idx] = relative_last_sync_insns(ns, cpu_idx);
     // else must goto failed
     } else {
 #ifndef NO_PRINT
@@ -242,8 +241,8 @@ static bool sync_and_check_take_checkpoint(NEMUState *ns,
     uint64_t limit_instructions = cpt_limit_instructions(ns);
     if (limit_instructions == 0) {
         *should_take_cpt = 0;
-    } else if(relative_kernel_exec_insns(cpu_idx) >= limit_instructions){
-        info_report("should take cpt");
+    } else if(relative_kernel_exec_insns(ns, cpu_idx) >= limit_instructions){
+//        info_report("should take cpt");
         *should_take_cpt = 1;
     } else {
         *should_take_cpt = 0;
@@ -254,13 +253,13 @@ static bool sync_and_check_take_checkpoint(NEMUState *ns,
     return true;
 
 wait:
-//#ifndef NO_PRINT
+#ifndef NO_PRINT
     fprintf(stderr,
             "cpu %ld get wait with insns: %lu, sync point: %lu, early exit "
             "this period: %i, online: %i, wait cpus: %i, halt cpus: %i\n",
-            cpu_idx, relative_last_sync_insns(cpu_idx), sync_limit_instructions(ns, cpu_idx),
+            cpu_idx, relative_last_sync_insns(ns, cpu_idx), sync_limit_instructions(ns, cpu_idx),
             ns->sync_info.early_exit[cpu_idx], online_cpus, wait_cpus, halt_cpus);
-//#endif
+#endif
 
 
     if (wait_cpus == 1) {
@@ -372,20 +371,16 @@ static inline void read_fifo(NEMUState *ns){
     }
 }
 
-static void update_last_seen_insns(NEMUState *ns){
+static void update_last_seen_insns(NEMUState *ns, uint64_t cpu_index){
     switch (ns->checkpoint_info.checkpoint_mode) {
         case UniformCheckpointing:
             for (int i = 0; i < ns->sync_info.cpus; i++) {
-                CPUState *cs = qemu_get_cpu(i);
-                CPURISCVState *env = cpu_env(cs);
-                env->last_seen_insns = env->profiling_insns;
+                ns->checkpoint_info.last_seen_insns[cpu_index] = ns->checkpoint_info.exec_insns[cpu_index];
             }
             break;
         case SyncUniformCheckpoint:
             for (int i = 0; i < ns->sync_info.cpus; i++) {
-                CPUState *cs = qemu_get_cpu(i);
-                CPURISCVState *env = cpu_env(cs);
-                env->last_seen_insns = env->profiling_insns;
+                ns->checkpoint_info.last_seen_insns[cpu_index] = ns->checkpoint_info.exec_insns[cpu_index];
             }
             break;
         case SimpointCheckpointing:
@@ -409,8 +404,7 @@ bool multi_core_try_take_cpt(NEMUState* ns, uint64_t icount, uint64_t cpu_idx,
 
         // start checkpoint
         if (should_take_cpt) {
-            serialize(0x80300000, cpu_idx, ns->sync_info.cpus,
-                      relative_kernel_exec_insns(cpu_idx));
+            serialize(0x80300000, cpu_idx, ns->sync_info.cpus, relative_kernel_exec_insns(ns, cpu_idx));
         }
 
         // checkpoint end, set all flags
@@ -418,10 +412,10 @@ bool multi_core_try_take_cpt(NEMUState* ns, uint64_t icount, uint64_t cpu_idx,
             ns->sync_info.checkpoint_end[i] = true;
         }
 
-//#ifndef NO_PRINT
+#ifndef NO_PRINT
         fprintf(stderr, "cpu: %ld get the broadcast, core0: %lu, core1: %lu checkpoint limit %lu relative kernel exec insn %lu\n",
-                cpu_idx, relative_last_sync_insns(0), relative_last_sync_insns(1), cpt_limit_instructions(ns), relative_kernel_exec_insns(cpu_idx));
-//#endif
+                cpu_idx, relative_last_sync_insns(ns, 0), relative_last_sync_insns(ns, 1), cpt_limit_instructions(ns), relative_kernel_exec_insns(ns, cpu_idx));
+#endif
         for (int i = 0; i < ns->sync_info.cpus; i++) {
 #ifndef NO_PRINT
             fprintf(stderr, "cpu %d, insns %ld\n", i, workload_insns(i));
@@ -432,7 +426,7 @@ bool multi_core_try_take_cpt(NEMUState* ns, uint64_t icount, uint64_t cpu_idx,
             if (ns->checkpoint_info.checkpoint_mode == SyncUniformCheckpoint) {
                 // send fifo message
                 ns->q2d_buf.cpt_id = cpt_limit_instructions(ns);
-                ns->q2d_buf.total_inst_count = relative_kernel_exec_insns(cpu_idx);
+                ns->q2d_buf.total_inst_count = relative_kernel_exec_insns(ns, cpu_idx);
                 send_fifo(ns);
                 // when period <= 0, next cpi will update
                 read_fifo(ns);
@@ -441,7 +435,7 @@ bool multi_core_try_take_cpt(NEMUState* ns, uint64_t icount, uint64_t cpu_idx,
             update_cpt_limit_instructions(ns, icount);
         }
 
-        update_last_seen_insns(ns);
+        update_last_seen_insns(ns, cpu_idx);
 
         // reset status
         memset(ns->sync_info.early_exit, 0, ns->sync_info.cpus * sizeof(bool));
@@ -475,15 +469,8 @@ void try_set_mie(void *env, NEMUState *ns)
     }
 }
 
-bool try_take_cpt(uint64_t inst_count, uint64_t cpu_idx, bool exit_sync_period)
+bool try_take_cpt(NEMUState *ns, uint64_t inst_count, uint64_t cpu_idx, bool exit_sync_period)
 {
-    MachineState *ms = MACHINE(qdev_get_machine());
-    NEMUState *ns = NEMU_MACHINE(ms);
- 
-    if (ns->checkpoint_info.checkpoint_mode == NoCheckpoint) {
-        return false;
-    }
-
     if (ns->single_core_cpt) {
         return single_core_try_take_cpt(ns, inst_count);
     } else {

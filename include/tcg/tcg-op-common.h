@@ -77,6 +77,9 @@ void tcg_gen_lookup_and_goto_ptr(void);
 void tcg_gen_plugin_cb_start(unsigned from, unsigned type, unsigned wr);
 void tcg_gen_plugin_cb_end(void);
 
+void tcg_gen_checkpoint_cb_start(void);
+void tcg_gen_checkpoint_cb_end(void);
+
 /* 32 bit ops */
 
 void tcg_gen_movi_i32(TCGv_i32 ret, int32_t arg);

@@ -4,7 +4,6 @@
 #include "hw/boards.h"
 #include "hw/riscv/riscv_hart.h"
 #include "hw/sysbus.h"
-#include "stdint.h"
 #include "checkpoint/directed_tbs.h"
 
 #define NEMU_CPUS_MAX 128
@@ -18,6 +17,9 @@ DECLARE_INSTANCE_CHECKER(NEMUState, NEMU_MACHINE,
 typedef struct NEMUConfig{} NEMUConfig;
 
 typedef struct Checkpoint{
+    uint64_t *exec_insns;
+    uint64_t *last_seen_insns;
+    uint64_t *kernel_insns;
     uint64_t cpt_interval;
     uint64_t warmup_interval;
     uint64_t next_uniform_point;

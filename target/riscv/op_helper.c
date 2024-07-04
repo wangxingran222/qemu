@@ -47,21 +47,21 @@ void helper_nemu_trap(CPURISCVState *env, target_ulong a0) {
         try_set_mie(env ,ns);
     } else if (a0 == NOTIFY_PROFILER) {
         // workload loaded
-        env->last_seen_insns = env->profiling_insns;
-        env->kernel_insns = env->profiling_insns;
+        ns->checkpoint_info.last_seen_insns[cs->cpu_index] = ns->checkpoint_info.exec_insns[cs->cpu_index];
+        ns->checkpoint_info.kernel_insns[cs->cpu_index] = ns->checkpoint_info.exec_insns[cs->cpu_index];
         // multi core checkpoint
         ns->sync_info.workload_loaded_percpu[cs->cpu_index] = 0x1;
         // single core
         ns->checkpoint_info.workload_loaded = true;
         printf("Notify cpu index %d nemu_trap get insns %ld get workload start profiling\n", cs->cpu_index,
-        env->profiling_insns);
+        ns->checkpoint_info.exec_insns[cs->cpu_index]);
     } else if (a0 == NOTIFY_WORKLOAD_EXIT) {
         // sig multi core exit
         ns->sync_info.workload_exit_percpu[cs->cpu_index] = 0x1;
         //
         ns->checkpoint_info.workload_exit = true;
         printf("Notify cpu index %d nemu_trap get insns %ld get worklaod exit\n",
-        cs->cpu_index, env->profiling_insns);
+        cs->cpu_index, ns->checkpoint_info.exec_insns[cs->cpu_index]);
     } else if(a0 == GOOD_TRAP){
         // exit when in simpoint profiling or normal running
         if (ns->checkpoint_info.checkpoint_mode == NoCheckpoint ||
@@ -418,6 +418,9 @@ target_ulong helper_mret(CPURISCVState *env)
 void helper_wfi(CPURISCVState *env)
 {
     CPUState *cs = env_cpu(env);
+    MachineState *ms = MACHINE(qdev_get_machine());
+    NEMUState *ns = NEMU_MACHINE(ms);
+
     bool rvs = riscv_has_ext(env, RVS);
     bool prv_u = env->priv == PRV_U;
     bool prv_s = env->priv == PRV_S;
@@ -432,7 +435,7 @@ void helper_wfi(CPURISCVState *env)
                (prv_u || (prv_s && get_field(env->hstatus, HSTATUS_VTW)))) {
         riscv_raise_exception(env, RISCV_EXCP_VIRT_INSTRUCTION_FAULT, GETPC());
     } else {
-        try_take_cpt(env->profiling_insns, cs->cpu_index, true);
+        try_take_cpt(ns, ns->checkpoint_info.exec_insns[cs->cpu_index], cs->cpu_index, true);
         cs->halted = 1;
         cs->exception_index = EXCP_HLT;
         cpu_loop_exit(cs);

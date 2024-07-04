@@ -32,6 +32,7 @@
 
 #include "instmap.h"
 #include "internals.h"
+#include "checkpoint/checkpoint.h"
 
 #define HELPER_H "helper.h"
 #include "exec/helper-info.c.inc"
@@ -1319,7 +1320,7 @@ void riscv_translate_init(void)
             offsetof(CPURISCVState, fpr[i]), riscv_fpr_regnames[i]);
     }
 
-    cpu_exec_count = tcg_global_mem_new(tcg_env, offsetof(CPURISCVState,profiling_insns), "profiling_insns");
+//    cpu_exec_count = tcg_global_mem_new(tcg_env, offsetof(CPURISCVState,profiling_insns), "profiling_insns");
     cpu_pc = tcg_global_mem_new(tcg_env, offsetof(CPURISCVState, pc), "pc");
     cpu_vl = tcg_global_mem_new(tcg_env, offsetof(CPURISCVState, vl), "vl");
     cpu_vstart = tcg_global_mem_new(tcg_env, offsetof(CPURISCVState, vstart),

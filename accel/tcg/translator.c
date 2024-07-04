@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include "checkpoint/checkpoint.h"
 
-static TCGv_i64 *cpu_exec_count=NULL;
+//static TCGv_i64 *cpu_exec_count=NULL;
 
 static void set_can_do_io(DisasContextBase *db, bool val)
 {
@@ -174,8 +174,13 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
     plugin_enabled = plugin_gen_tb_start(cpu, db, cflags & CF_MEMI_ONLY);
     db->plugin_enabled = plugin_enabled;
 
-    checkpoint_gen_empty_callback();
-    cpu_exec_count=ops->cpu_exec_count;
+    MachineState *ms = MACHINE(qdev_get_machine());
+    NEMUState *ns = NEMU_MACHINE(ms);
+    if (ns->checkpoint_info.checkpoint_mode != NoCheckpoint) {
+        checkpoint_gen_empty_callback();
+    }
+
+//    cpu_exec_count=ops->cpu_exec_count;
     while (true) {
         *max_insns = ++db->num_insns;
 
@@ -197,7 +202,7 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
             set_can_do_io(db, true);
         }
 
-        tcg_gen_addi_i64(*cpu_exec_count,*cpu_exec_count,1);
+//        tcg_gen_addi_i64(*cpu_exec_count,*cpu_exec_count,1);
         ops->translate_insn(db, cpu);
 
         /*
@@ -226,14 +231,20 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
         }
     }
 
+
 //    printf("exec cpu insns update %s %lx num_insns %d\n",((TCGTemp*)tcgv_i64_arg(*cpu_exec_count))->name,((TCGTemp*)tcgv_i64_arg(*cpu_exec_count))->val,db->num_insns);
 
     /* Emit code to exit the TB, as indicated by db->is_jmp.  */
     ops->tb_stop(db, cpu);
     gen_tb_end(tb, cflags, icount_start_insn, db->num_insns);
 
+
     if (plugin_enabled) {
         plugin_gen_tb_end(cpu, db->num_insns);
+    }
+    
+    if (ns->checkpoint_info.checkpoint_mode != NoCheckpoint) {
+        inject_checkpoint_cb(db->num_insns);
     }
 
     /* The disas_log hook may use these values rather than recompute.  */

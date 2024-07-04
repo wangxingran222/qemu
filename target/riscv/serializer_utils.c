@@ -13,7 +13,7 @@
 
 void update_cpt_limit_instructions(NEMUState *ns, uint64_t icount) {
 
-    info_report("Taking checkpoint @ instruction count %lu", icount);
+//    info_report("Taking checkpoint @ instruction count %lu", icount);
     guint cpt_insns_list_length=g_list_length(ns->simpoint_info.cpt_instructions);
     switch (ns->checkpoint_info.checkpoint_mode) {
         case SimpointCheckpointing:
