@@ -6,9 +6,12 @@
 #include "checkpoint/checkpoint.pb.h"
 #include "checkpoint/pb_encode.h"
 #include <assert.h>
+#include <string.h>
+#include <sys/mman.h>
 #include <zstd.h>
 
-#define USE_ZSTD_COMPRESS
+// #define USE_ZSTD_COMPRESS
+#define USE_RAW_IMAGE
 void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_status_buffer, int buffer_size)
 {
 
@@ -32,16 +35,39 @@ void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_sta
     char filepath[FILEPATH_BUF_SIZE];
 
     //prepare path
+#ifdef USE_RAW_IMAGE
+    const char *cpt_suffix = "img";
+#elif defined(USE_ZSTD_COMPRESS)
+    const char *cpt_suffix = "zstd";
+#else
+    assert defined(USE_ZLIB_COMPRESS)
+    const char *cpt_suffix = "gz";
+#endif
+
     if (checkpoint.checkpoint_mode == SimpointCheckpointing) {
         strcpy(filepath,((GString*)(g_list_first(path_manager.checkpoint_path_list)->data))->str);
-    }else if(checkpoint.checkpoint_mode==UniformCheckpointing){
-        sprintf(filepath, "%s/%ld/_%ld_.gz", path_manager.uniform_path->str, inst_count, inst_count);
+    } else if (checkpoint.checkpoint_mode == UniformCheckpointing) {
+        sprintf(filepath, "%s/%ld/_%ld_.%s", path_manager.uniform_path->str, inst_count, inst_count, cpt_suffix);
     }
 
     printf("prepare for generate checkpoint path %s pmem_size %ld\n",filepath,guest_pmem_size);
     assert(g_mkdir_with_parents(g_path_get_dirname(filepath), 0775)==0);
+#ifdef USE_RAW_IMAGE
+    // create a mmap file
+    int fd = open(filepath, O_RDWR | O_CREAT, 0666);
+    if (fd < 0) {
+        error_printf("open file %s failed", filepath);
+        return;
+    }
+    if (ftruncate(fd, guest_pmem_size) < 0) {
+        error_printf("ftruncate file %s failed", filepath);
+        return;
+    }
+    void *cpt_mem = mmap(NULL, guest_pmem_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    memcpy(cpt_mem, pmem_addr, guest_pmem_size);
+    msync(cpt_mem, guest_pmem_size, MS_SYNC);
 
-#ifdef USE_ZSTD_COMPRESS
+#elif defined(USE_ZSTD_COMPRESS)
     //zstd compress
     size_t const compress_buffer_size = ZSTD_compressBound(gcpt_mmio_pmem_size);
     void* const compress_buffer = malloc(compress_buffer_size);
@@ -70,9 +96,8 @@ void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_sta
 
     free(compress_buffer);
 
-#endif
-
-#ifdef USE_ZLIB_COMPRESS
+#else
+    assert defined(USE_ZLIB_COMPRESS);
     //zlib compress
     gzFile compressed_mem=NULL;
     compressed_mem=gzopen(filepath,"wb");

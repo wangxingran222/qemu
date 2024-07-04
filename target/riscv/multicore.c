@@ -77,11 +77,25 @@ void multicore_checkpoint_init(void)
     g_mutex_unlock(&sync_lock);
 }
 
-static uint64_t workload_insns(int cpu_index)
+__attribute_maybe_unused__ static uint64_t since_profilong_insns(int cpu_index)
 {
     CPUState *cs = qemu_get_cpu(cpu_index);
     CPURISCVState *env = cpu_env(cs);
-    return env->profiling_insns - env->last_seen_insns;
+    return env->profiling_insns - env->profiling_start_insns;
+}
+
+static uint64_t sync_period_insns(int cpu_index)
+{
+    CPUState *cs = qemu_get_cpu(cpu_index);
+    CPURISCVState *env = cpu_env(cs);
+    return env->profiling_insns - env->last_sync_insns;
+}
+
+static uint64_t cpt_period_insns(int cpu_index)
+{
+    CPUState *cs = qemu_get_cpu(cpu_index);
+    CPURISCVState *env = cpu_env(cs);
+    return env->profiling_insns - env->last_cpt_insns;
 }
 
 // prepare merge single core checkpoint
@@ -93,7 +107,7 @@ static uint64_t get_next_instructions(void)
 static uint64_t cpt_limit_instructions(void)
 {
     if (checkpoint.checkpoint_mode == UniformCheckpointing) {
-        return checkpoint.next_uniform_point;
+        return checkpoint.cpt_interval;
     } else {
         return get_next_instructions();
     }
@@ -120,19 +134,22 @@ static void update_uniform_limit_inst(bool taken_cpt)
     memset(sync_info.early_exit, 0, sync_info.cpus * sizeof(bool));
 
     sync_control_info.info_vaild_periods -= 1;
-    if (sync_control_info.info_vaild_periods <= 0) {
+    // For test, TODO remove it in real sim
+    // if (sync_control_info.info_vaild_periods <= 0) {
+    // For real sim
+    if (taken_cpt) {
         // For test, TODO remove it in real sim
-        write(q2d_fifo, &q2d_buf, sizeof(Qemu2Detail));
+        // write(q2d_fifo, &q2d_buf, sizeof(Qemu2Detail));
 #ifndef NO_PRINT
         fprintf(stderr, "Obtaining new sync control info\n");
 #endif
         read(d2q_fifo, &sync_control_info.u_arch_info,
              sizeof(Detail2Qemu));
         // For test, TODO remove it in real sim
-        sync_control_info.info_vaild_periods = 3;
+        // sync_control_info.info_vaild_periods = 3;
         // For real
-        // sync_control_info.info_vaild_periods = checkpoint.cpt_interval /
-        //                                       sync_info.sync_interval;
+        sync_control_info.info_vaild_periods = checkpoint.cpt_interval /
+                                              sync_info.sync_interval;
 #ifndef NO_PRINT
         fprintf(stderr,
                 "Obtained new sync control info, valid thru %i periods\n",
@@ -148,11 +165,11 @@ __attribute_maybe_unused__ static int get_env_cpu_mode(uint64_t cpu_idx)
     return env->priv;
 }
 
-static bool sync_and_check_take_checkpoint(uint64_t workload_exec_insns,
-                                           uint64_t cpu_idx,
+static bool sync_and_check_take_checkpoint(uint64_t cpu_idx,
                                            bool *should_take_cpt,
                                            bool early_exit)
 {
+    uint64_t sync_period_insns_this_core = sync_period_insns(cpu_idx);
 #ifndef NO_PRINT
     __attribute__((unused)) int r = rand() % 100000;
     if (r < 10) {
@@ -220,7 +237,7 @@ static bool sync_and_check_take_checkpoint(uint64_t workload_exec_insns,
             halt_cpus += 1;
         }
         if (this_cpu_exit_sync_period || halt ||
-            workload_insns(i) >= sync_limit_instructions(i)) {
+            sync_period_insns(i) >= sync_limit_instructions(i)) {
             if (sync_info.workload_exit_percpu[i] != 0x1) {
                 wait_cpus += 1;
             }
@@ -230,8 +247,8 @@ static bool sync_and_check_take_checkpoint(uint64_t workload_exec_insns,
     // when set limit instructions, hart must goto wait
     if (early_exit) {
         sync_info.early_exit[cpu_idx] = true;
-    } else if (workload_exec_insns >= sync_limit_instructions(cpu_idx)) {
-        sync_info.workload_insns[cpu_idx] = workload_exec_insns;
+    } else if (sync_period_insns_this_core >= sync_limit_instructions(cpu_idx)) {
+        sync_info.workload_insns[cpu_idx] = sync_period_insns_this_core;
     } else {
 #ifndef NO_PRINT
         if (r < 10 || (wait_cpus == 1)) {
@@ -240,7 +257,7 @@ static bool sync_and_check_take_checkpoint(uint64_t workload_exec_insns,
             fprintf(
                 stderr,
                 "%s: cpu %ld: has not reached limit insns: %lu at pc: %#lx\n",
-                __func__, cpu_idx, workload_insns(cpu_idx), env->pc);
+                __func__, cpu_idx, sync_period_insns(cpu_idx), env->pc);
         }
 #endif
         goto failed;
@@ -250,7 +267,18 @@ static bool sync_and_check_take_checkpoint(uint64_t workload_exec_insns,
         goto wait;
     }
 
-    *should_take_cpt = workload_exec_insns >= cpt_limit_instructions();
+    bool any_core_exceed_limit = false;
+    for (int i = 0; i < sync_info.cpus; i++) {
+        if (cpt_period_insns(i) >= cpt_limit_instructions()) {
+#ifndef NO_PRINT
+            fprintf(stderr, "cpu %d exceed limit insns: %lu\n", i, cpt_period_insns(i));
+#endif
+            any_core_exceed_limit = true;
+            break;
+        }
+    }
+
+    *should_take_cpt = any_core_exceed_limit;
 
     g_mutex_unlock(&sync_lock);
     // all hart get sync node
@@ -261,7 +289,7 @@ wait:
     fprintf(stderr,
             "cpu %ld get wait with insns: %lu, sync point: %lu, early exit "
             "this period: %i, online: %i, wait cpus: %i, halt cpus: %i\n",
-            cpu_idx, workload_insns(cpu_idx), sync_limit_instructions(cpu_idx),
+            cpu_idx, sync_period_insns(cpu_idx), sync_limit_instructions(cpu_idx),
             sync_info.early_exit[cpu_idx], online_cpus, wait_cpus, halt_cpus);
 #endif
 
@@ -278,7 +306,7 @@ wait:
 
 #ifndef NO_PRINT
     fprintf(stderr, "cpu: %ld get the sync end, core0: %lu, core1: %lu\n",
-            cpu_idx, workload_insns(0), workload_insns(1));
+            cpu_idx, sync_period_insns(0), sync_period_insns(1));
 #endif
 
     // reset status
@@ -366,8 +394,8 @@ bool multi_core_try_take_cpt(uint64_t icount, uint64_t cpu_idx,
     }
 
     bool should_take_cpt = false;
-    if (sync_and_check_take_checkpoint(workload_insns(cpu_idx), cpu_idx,
-                                       &should_take_cpt, exit_sync_period)) {
+    if (sync_and_check_take_checkpoint(cpu_idx, &should_take_cpt,
+                                       exit_sync_period)) {
 #ifndef NO_PRINT
         fprintf(stderr, "%s: cpu %ld finished sync lastly, exit period: %i\n",
                 __func__, cpu_idx, exit_sync_period);
@@ -377,7 +405,7 @@ bool multi_core_try_take_cpt(uint64_t icount, uint64_t cpu_idx,
         // start checkpoint
         if (should_take_cpt) {
             serialize(0x80300000, cpu_idx, sync_info.cpus,
-                      workload_insns(cpu_idx));
+                      sync_period_insns(cpu_idx));
         }
 
         // checkpoint end, set all flags
@@ -387,11 +415,11 @@ bool multi_core_try_take_cpt(uint64_t icount, uint64_t cpu_idx,
 
 #ifndef NO_PRINT
         fprintf(stderr, "cpu: %ld get the broadcast, core0: %lu, core1: %lu\n",
-                cpu_idx, workload_insns(0), workload_insns(1));
+                cpu_idx, sync_period_insns(0), sync_period_insns(1));
 #endif
         for (int i = 0; i < sync_info.cpus; i++) {
 #ifndef NO_PRINT
-            fprintf(stderr, "cpu %d, insns %ld\n", i, workload_insns(i));
+            fprintf(stderr, "cpu %d, insns %ld\n", i, sync_period_insns(i));
 #endif
         }
 
@@ -401,7 +429,15 @@ bool multi_core_try_take_cpt(uint64_t icount, uint64_t cpu_idx,
             for (int i = 0; i < sync_info.cpus; i++) {
                 CPUState *cs = qemu_get_cpu(i);
                 CPURISCVState *env = cpu_env(cs);
-                env->last_seen_insns = env->profiling_insns;
+                env->last_sync_insns = env->profiling_insns;
+            }
+
+            if (should_take_cpt) {
+                for (int i = 0; i < sync_info.cpus; i++) {
+                    CPUState *cs = qemu_get_cpu(i);
+                    CPURISCVState *env = cpu_env(cs);
+                    env->last_cpt_insns = env->profiling_insns;
+                }
             }
         }
 

@@ -31,10 +31,10 @@ static int get_env_cpu_mode(void){
     return env->priv;
 }
 
-static uint64_t get_kernel_insns(void){
+static uint64_t get_since_profiling_insns(void){
     CPUState *cs = qemu_get_cpu(0);
     CPURISCVState *env = cpu_env(cs);
-    return env->last_seen_insns;
+    return env->profiling_start_insns;
 }
 
 static bool instrsCouldTakeCpt(uint64_t icount) {
@@ -120,7 +120,8 @@ static bool could_take_checkpoint(uint64_t icount){
 }
 
 bool single_core_try_take_cpt(uint64_t icount) {
-    uint64_t workload_exec_insns=icount-get_kernel_insns();
+    assert("Not implemented in new instruction counting mechanism\n");
+    uint64_t workload_exec_insns = icount - get_since_profiling_insns();
     if (could_take_checkpoint(workload_exec_insns)) {
         serialize(workload_exec_insns);
         notify_taken(workload_exec_insns);

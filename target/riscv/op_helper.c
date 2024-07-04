@@ -45,7 +45,7 @@ void helper_nemu_trap(CPURISCVState *env,target_ulong a0){
         try_set_mie(env);
     } else if (a0 == NOTIFY_PROFILER) {
         // workload loaded
-        env->last_seen_insns = env->profiling_insns;
+        env->last_sync_insns = env->profiling_insns;
         // multi core checkpoint
         sync_info.workload_loaded_percpu[cs->cpu_index] = 0x1;
         // single core
