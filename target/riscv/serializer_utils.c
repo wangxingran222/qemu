@@ -7,10 +7,13 @@
 #include "checkpoint/checkpoint.pb.h"
 #include "checkpoint/pb_encode.h"
 #include <assert.h>
+#include <string.h>
+#include <sys/mman.h>
 #include <stdint.h>
 #include <zstd.h>
 
 #define USE_ZSTD_COMPRESS
+// #define USE_RAW_IMAGE
 
 void update_cpt_limit_instructions(NEMUState *ns, uint64_t icount) {
 
@@ -56,19 +59,43 @@ void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_sta
     }
 
     char filepath[FILEPATH_BUF_SIZE];
+    //prepare path
+    #ifdef USE_RAW_IMAGE
+        const char *cpt_suffix = "img";
+    #elif defined(USE_ZSTD_COMPRESS)
+        const char *cpt_suffix = "zstd";
+    #else
+        assert defined(USE_ZLIB_COMPRESS)
+        const char *cpt_suffix = "gz";
+    #endif
 
     //prepare path
     if (ns->checkpoint_info.checkpoint_mode == SimpointCheckpointing) {
         strcpy(filepath,((GString*)(g_list_first(ns->path_manager.checkpoint_path_list)->data))->str);
-    }else if(ns->checkpoint_info.checkpoint_mode==UniformCheckpointing || ns->checkpoint_info.checkpoint_mode == SyncUniformCheckpoint){
-        sprintf(filepath, "%s/%ld/_%ld_.gz", ns->path_manager.uniform_path->str, inst_count, inst_count);
+    }else if(ns->checkpoint_info.checkpoint_mode == UniformCheckpointing || ns->checkpoint_info.checkpoint_mode == SyncUniformCheckpoint){
+        sprintf(filepath, "%s/%ld/_%ld_.%s", ns->path_manager.uniform_path->str, inst_count, inst_count, cpt_suffix);
     }
     info_report("prepare for generate checkpoint path %s base_path %s inst_count %ld pmem_size %ld\n", filepath, ns->path_manager.uniform_path->str, inst_count, guest_pmem_size);
     assert(g_mkdir_with_parents(g_path_get_dirname(filepath), 0775)==0);
     if (q2d_buf != NULL)
         memcpy(q2d_buf->checkpoint_path, filepath, FILEPATH_BUF_SIZE);
 
-#ifdef USE_ZSTD_COMPRESS
+#ifdef USE_RAW_IMAGE
+    // create a mmap file
+    int fd = open(filepath, O_RDWR | O_CREAT, 0666);
+    if (fd < 0) {
+        error_printf("open file %s failed", filepath);
+        return;
+    }
+    if (ftruncate(fd, guest_pmem_size) < 0) {
+        error_printf("ftruncate file %s failed", filepath);
+        return;
+    }
+    void *cpt_mem = mmap(NULL, guest_pmem_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    memcpy(cpt_mem, pmem_addr, guest_pmem_size);
+    msync(cpt_mem, guest_pmem_size, MS_SYNC);
+
+#elif defined(USE_ZSTD_COMPRESS)
     //zstd compress
     size_t const compress_buffer_size = ZSTD_compressBound(gcpt_mmio_pmem_size);
     void* const compress_buffer = malloc(compress_buffer_size);
@@ -97,9 +124,9 @@ void serialize_pmem(uint64_t inst_count, int using_gcpt_mmio, char* hardware_sta
 
     free(compress_buffer);
 
-#endif
+#else
+    assert defined(USE_ZLIB_COMPRESS);
 
-#ifdef USE_ZLIB_COMPRESS
     //zlib compress
     gzFile compressed_mem=NULL;
     compressed_mem=gzopen(filepath,"wb");
