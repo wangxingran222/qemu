@@ -84,6 +84,7 @@
 #include "audio/audio.h"
 #include "sysemu/cpus.h"
 #include "sysemu/cpu-timers.h"
+#include "sysemu/cpticount.h"
 #include "migration/colo.h"
 #include "migration/postcopy-ram.h"
 #include "sysemu/kvm.h"
@@ -447,6 +448,19 @@ static QemuOptsList qemu_icount_opts = {
         }, {
             .name = "rrsnapshot",
             .type = QEMU_OPT_STRING,
+        },
+        { /* end of list */ }
+    },
+};
+
+static QemuOptsList qemu_cpticount_opts = {
+    .name = "cpticount",
+    .implied_opt_name = "count",
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_cpticount_opts.head),
+    .desc = {
+        {
+            .name = "count",
+            .type = QEMU_OPT_NUMBER,
         },
         { /* end of list */ }
     },
@@ -2338,6 +2352,7 @@ static void configure_accelerators(const char *progname)
 
     qemu_opts_foreach(qemu_find_opts("icount"),
                       do_configure_icount, NULL, &error_fatal);
+    /* CPTICOUNT conflict check? */
 
     if (QTAILQ_EMPTY(&qemu_accel_opts.head)) {
         char **accel_list, **tmp;
@@ -2398,8 +2413,8 @@ static void configure_accelerators(const char *progname)
         error_report("falling back to %s", current_accel_name());
     }
 
-    if (icount_enabled() && !tcg_enabled()) {
-        error_report("-icount is not allowed with hardware virtualization");
+    if ((icount_enabled() || cpticount_enabled()) && !tcg_enabled()) {
+        error_report("-icount or -cpticount is not allowed with hardware virtualization");
         exit(1);
     }
 }
@@ -2770,6 +2785,7 @@ void qemu_init(int argc, char **argv)
     qemu_add_opts(&qemu_name_opts);
     qemu_add_opts(&qemu_numa_opts);
     qemu_add_opts(&qemu_icount_opts);
+    qemu_add_opts(&qemu_cpticount_opts);
     qemu_add_opts(&qemu_semihosting_config_opts);
     qemu_add_opts(&qemu_fw_cfg_opts);
     qemu_add_opts(&qemu_action_opts);
@@ -3442,6 +3458,20 @@ void qemu_init(int argc, char **argv)
                 if (!icount_opts) {
                     exit(1);
                 }
+                break;
+            case QEMU_OPTION_cpticount:
+                opts = qemu_opts_parse_noisily(qemu_find_opts("cpticount"),
+                                                      optarg, true);
+                if (!opts) {
+                    exit(1);
+                }
+                cpticount = qemu_opt_get_number(opts, "count", 0);
+                cpticount_status = CPTICOUNT_ENABLED;
+                if (cpticount <= 0) {
+                    error_report("Cpticount can not be set to leq zero");
+                    exit(1);
+                }
+                printf("Cpticount Options Read! %lu\n", cpticount); /* CPTICOUNT opt read debug */
                 break;
             case QEMU_OPTION_incoming:
                 if (!incoming) {

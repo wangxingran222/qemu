@@ -4715,6 +4715,11 @@ SRST
     specifies the snapshot name used to load the initial VM state.
 ERST
 
+DEF("cpticount", HAS_ARG, QEMU_OPTION_cpticount, \
+    "-cpticount [count=N]\n" \
+    "                terminate and create a checkpoint when the instruction count meets the specified criterion.\n",
+    QEMU_ARCH_ALL)
+
 DEF("watchdog-action", HAS_ARG, QEMU_OPTION_watchdog_action, \
     "-watchdog-action reset|shutdown|poweroff|inject-nmi|pause|debug|none\n" \
     "                action when watchdog fires [default=reset]\n",

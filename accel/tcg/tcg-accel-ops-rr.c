@@ -28,6 +28,7 @@
 #include "sysemu/tcg.h"
 #include "sysemu/replay.h"
 #include "sysemu/cpu-timers.h"
+#include "sysemu/cpticount.h"
 #include "qemu/main-loop.h"
 #include "qemu/notify.h"
 #include "qemu/guest-random.h"
@@ -258,9 +259,16 @@ static void *rr_cpu_thread_fn(void *arg)
                 if (icount_enabled()) {
                     icount_prepare_for_run(cpu, cpu_budget);
                 }
+                cpticount_init(cpu);
+                if (cpticount_enabled()) {
+                    cpticount_prepare_for_run(cpu);
+                }
                 r = tcg_cpu_exec(cpu);
                 if (icount_enabled()) {
                     icount_process_data(cpu);
+                }
+                if (cpticount_enabled()) {
+                    cpticount_process_data(cpu);
                 }
                 bql_lock();
 

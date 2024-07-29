@@ -41,14 +41,14 @@ static TCGOp *gen_tb_start(DisasContextBase *db, uint32_t cflags)
     TCGv_i32 count = NULL;
     TCGOp *icount_start_insn = NULL;
 
-    if ((cflags & CF_USE_ICOUNT) || !(cflags & CF_NOIRQ)) {
+    if ((cflags & CF_USE_ICOUNT) || (cflags & CF_USE_CPTICOUNT) || !(cflags & CF_NOIRQ)) {
         count = tcg_temp_new_i32();
         tcg_gen_ld_i32(count, tcg_env,
                        offsetof(ArchCPU, parent_obj.neg.icount_decr.u32)
                        - offsetof(ArchCPU, env));
     }
 
-    if (cflags & CF_USE_ICOUNT) {
+    if ((cflags & CF_USE_ICOUNT) || (cflags & CF_USE_CPTICOUNT)) {
         /*
          * We emit a sub with a dummy immediate argument. Keep the insn index
          * of the sub so that we later (when we know the actual insn count)
@@ -72,7 +72,7 @@ static TCGOp *gen_tb_start(DisasContextBase *db, uint32_t cflags)
         tcg_gen_brcondi_i32(TCG_COND_LT, count, 0, tcg_ctx->exitreq_label);
     }
 
-    if (cflags & CF_USE_ICOUNT) {
+    if ((cflags & CF_USE_ICOUNT) || (cflags & CF_USE_CPTICOUNT)) {
         tcg_gen_st16_i32(count, tcg_env,
                          offsetof(ArchCPU, parent_obj.neg.icount_decr.u16.low)
                          - offsetof(ArchCPU, env));
@@ -84,7 +84,7 @@ static TCGOp *gen_tb_start(DisasContextBase *db, uint32_t cflags)
 static void gen_tb_end(const TranslationBlock *tb, uint32_t cflags,
                        TCGOp *icount_start_insn, int num_insns)
 {
-    if (cflags & CF_USE_ICOUNT) {
+    if ((cflags & CF_USE_ICOUNT) || (cflags & CF_USE_CPTICOUNT)) {
         /*
          * Update the num_insn immediate parameter now that we know
          * the actual insn count.

@@ -55,6 +55,7 @@
 #include "exec/log.h"
 #include "sysemu/cpus.h"
 #include "sysemu/cpu-timers.h"
+#include "sysemu/cpticount.h"
 #include "sysemu/tcg.h"
 #include "qapi/error.h"
 #include "hw/core/tcg-cpu-ops.h"
@@ -209,8 +210,8 @@ void cpu_restore_state_from_tb(CPUState *cpu, TranslationBlock *tb,
         return;
     }
 
-    if (tb_cflags(tb) & CF_USE_ICOUNT) {
-        assert(icount_enabled());
+    if ((tb_cflags(tb) & CF_USE_ICOUNT) || (tb_cflags(tb) & CF_USE_CPTICOUNT)) {
+        assert(icount_enabled() || cpticount_enabled());
         /*
          * Reset the cycle counter to the start of the block and
          * shift if to the number of actually executed instructions.

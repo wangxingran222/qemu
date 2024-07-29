@@ -33,6 +33,7 @@
 #include "sysemu/cpus.h"
 #include "exec/cpu-all.h"
 #include "sysemu/cpu-timers.h"
+#include "sysemu/cpticount.h"
 #include "exec/replay-core.h"
 #include "sysemu/tcg.h"
 #include "exec/helper-proto-common.h"
@@ -776,6 +777,17 @@ static inline bool icount_exit_request(CPUState *cpu)
     return cpu->neg.icount_decr.u16.low + cpu->icount_extra == 0;
 }
 
+static inline bool cpticount_exit_request(CPUState *cpu)
+{
+    if (!cpticount_enabled()) {
+        return false;
+    }
+    if (cpu->cflags_next_tb != -1 && !(cpu->cflags_next_tb & CF_USE_CPTICOUNT)) {
+        return false;
+    }
+    return cpu->neg.icount_decr.u16.low + cpu->icount_extra == 0;
+}
+
 static inline bool cpu_handle_interrupt(CPUState *cpu,
                                         TranslationBlock **last_tb)
 {
@@ -882,7 +894,7 @@ static inline bool cpu_handle_interrupt(CPUState *cpu,
     }
 
     /* Finally, check if we need to exit to the main loop.  */
-    if (unlikely(qatomic_read(&cpu->exit_request)) || icount_exit_request(cpu)) {
+    if (unlikely(qatomic_read(&cpu->exit_request)) || icount_exit_request(cpu) || cpticount_exit_request(cpu)) {
         qatomic_set(&cpu->exit_request, 0);
         if (cpu->exception_index == -1) {
             cpu->exception_index = EXCP_INTERRUPT;
@@ -901,7 +913,7 @@ static inline void cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
 
     trace_exec_tb(tb, pc);
     tb = cpu_tb_exec(cpu, tb, tb_exit);
-    if (*tb_exit != TB_EXIT_REQUESTED) {
+    if (*tb_exit != TB_EXIT_REQUESTED) { /* 这表明，进入后续逻辑，均为TB_EXIT_REQUESTED，(usually meaning that there is an interrupt that needs to be handled) */
         *last_tb = tb;
         return;
     }
@@ -919,11 +931,18 @@ static inline void cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
         return;
     }
 
-    /* Instruction counter expired.  */
-    assert(icount_enabled());
+    /* Instruction counter expired. Or CPTICOUNT batch complete */
+    assert(icount_enabled() || cpticount_enabled());
 #ifndef CONFIG_USER_ONLY
-    /* Ensure global icount has gone forward */
-    icount_update(cpu);
+    if (icount_enabled()) {
+        /* Ensure global icount has gone forward */
+        icount_update(cpu);
+    } else {
+        cpticount_update(cpu);
+    }
+
+    /* 此处后续更新insns_left的逻辑与icount完全一致，可以直接复用 */
+
     /* Refill decrementer and continue execution.  */
     insns_left = MIN(0xffff, cpu->icount_budget);
     cpu->neg.icount_decr.u16.low = insns_left;

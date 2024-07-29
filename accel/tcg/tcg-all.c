@@ -27,6 +27,7 @@
 #include "sysemu/tcg.h"
 #include "exec/replay-core.h"
 #include "sysemu/cpu-timers.h"
+#include "sysemu/cpticount.h"
 #include "tcg/startup.h"
 #include "tcg/oversized-guest.h"
 #include "qapi/error.h"
@@ -70,7 +71,7 @@ DECLARE_INSTANCE_CHECKER(TCGState, TCG_STATE,
 
 static bool default_mttcg_enabled(void)
 {
-    if (icount_enabled() || TCG_OVERSIZED_GUEST) {
+    if (icount_enabled() || cpticount_enabled() || TCG_OVERSIZED_GUEST) {
         return false;
     }
 #ifdef TARGET_SUPPORTS_MTTCG
