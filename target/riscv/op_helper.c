@@ -24,6 +24,7 @@
 #include "exec/exec-all.h"
 #include "exec/cpu_ldst.h"
 #include "exec/helper-proto.h"
+#include "sysemu/runstate.h"
 
 /* Exceptions processing helpers */
 G_NORETURN void riscv_raise_exception(CPURISCVState *env,
@@ -540,6 +541,28 @@ target_ulong helper_hyp_hlvx_wu(CPURISCVState *env, target_ulong addr)
     MemOpIdx oi = make_memop_idx(MO_TEUL, mmu_idx);
 
     return cpu_ldl_code_mmu(env, addr, oi, ra);
+}
+
+void helper_nemu_trap(CPURISCVState *env, target_ulong a0) {
+    
+    // nemu trap -> nemu_singal(GOOD_TRAP)
+#define GOOD_TRAP 0x0
+
+    fflush(stdout);
+
+    uint64_t tmp_a0 = (uint64_t)a0;
+
+    if(a0 == GOOD_TRAP){
+        // exit when in simpoint profiling or normal running
+        printf("[QEMU]helper_nemu_trap: Hit GOOD TRAP\n");
+        exit(0);
+        // qemu_system_shutdown_request(SHUTDOWN_CAUSE_HOST_QMP_QUIT);
+
+    } else {
+        printf("[QEMU]helper_nemu_trap: Hit BAD TRAP %lu\n", tmp_a0);
+        exit(0);
+        // qemu_system_shutdown_request(SHUTDOWN_CAUSE_HOST_QMP_QUIT);
+    }
 }
 
 #endif /* !CONFIG_USER_ONLY */

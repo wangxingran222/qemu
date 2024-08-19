@@ -56,6 +56,8 @@
 #include "qapi/qapi-visit-common.h"
 #include "hw/virtio/virtio-iommu.h"
 
+#include "hw/char/xilinx_uartlite.h"
+
 /* KVM AIA only supports APLIC MSI. APLIC Wired is always emulated by QEMU. */
 static bool virt_use_kvm_aia(RISCVVirtState *s)
 {
@@ -87,6 +89,7 @@ static const MemMapEntry virt_memmap[] = {
     [VIRT_IMSIC_S] =      { 0x28000000, VIRT_IMSIC_MAX_SIZE },
     [VIRT_PCIE_ECAM] =    { 0x30000000,    0x10000000 },
     [VIRT_PCIE_MMIO] =    { 0x40000000,    0x40000000 },
+    [NEMU_UARTLITE] =     { 0x40600000, 0x1000 },
     [VIRT_DRAM] =         { 0x80000000,           0x0 },
 };
 
@@ -1587,6 +1590,18 @@ static void virt_machine_init(MachineState *machine)
                                   drive_get(IF_PFLASH, 0, i));
     }
     virt_flash_map(s, system_memory);
+
+    /* uartlite for custom baremetal program */
+    DeviceState *dev_uartlite;
+    dev_uartlite = qdev_new(TYPE_XILINX_UARTLITE);
+    qdev_prop_set_chr(dev_uartlite, "chardev", serial_hd(0));
+    sysbus_realize_and_unref(SYS_BUS_DEVICE(dev_uartlite), &error_fatal);
+
+    memory_region_add_subregion(system_memory, memmap[NEMU_UARTLITE].base,
+                                sysbus_mmio_get_region(SYS_BUS_DEVICE(dev_uartlite), 0));
+
+    sysbus_connect_irq(SYS_BUS_DEVICE(dev_uartlite), 0,
+                       qdev_get_gpio_in(DEVICE(s->irqchip[0]), UART0_IRQ));
 
     /* load/create device tree */
     if (machine->dtb) {

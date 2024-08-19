@@ -172,6 +172,18 @@ void qemu_plugin_register_vcpu_tb_trans_cb(qemu_plugin_id_t id,
     plugin_register_cb(id, QEMU_PLUGIN_EV_VCPU_TB_TRANS, cb);
 }
 
+void qemu_plugin_register_vcpu_tb_restore_cb(qemu_plugin_id_t id,
+                                             qemu_plugin_vcpu_tb_restore_cb_t cb)
+{
+    plugin_register_cb(id, QEMU_PLUGIN_EV_VCPU_TB_RESTORE, cb);
+}
+
+void qemu_plugin_register_vcpu_tb_recompile_io_cb(qemu_plugin_id_t id,
+                                                  qemu_plugin_vcpu_tb_recompile_io_cb_t cb)
+{
+    plugin_register_cb(id, QEMU_PLUGIN_EV_VCPU_TB_RECOMPILE_IO, cb);
+}
+
 void qemu_plugin_register_vcpu_syscall_cb(qemu_plugin_id_t id,
                                           qemu_plugin_vcpu_syscall_cb_t cb)
 {
@@ -209,6 +221,51 @@ size_t qemu_plugin_tb_n_insns(const struct qemu_plugin_tb *tb)
 uint64_t qemu_plugin_tb_vaddr(const struct qemu_plugin_tb *tb)
 {
     return tb->vaddr;
+}
+
+unsigned int qemu_plugin_tb_restore_cpu_index(const struct qemu_plugin_tb_restore *tb_restore)
+{
+    return tb_restore->cpu_index;
+}
+
+int qemu_plugin_tb_restore_insns_left(const struct qemu_plugin_tb_restore *tb_restore)
+{
+    return tb_restore->insns_left;
+}
+
+size_t qemu_plugin_tb_restore_tb_n(const struct qemu_plugin_tb_restore *tb_restore)
+{
+    return tb_restore->tb_n;
+}
+
+uint64_t qemu_plugin_tb_restore_tb_pc(const struct qemu_plugin_tb_restore *tb_restore)
+{
+    return tb_restore->tb_pc;
+}
+
+uint32_t qemu_plugin_tb_restore_tb_cflags(const struct qemu_plugin_tb_restore *tb_restore)
+{
+    return tb_restore->tb_cflags;
+}
+
+unsigned int qemu_plugin_tb_recompile_io_cpu_index(const struct qemu_plugin_tb_recompile_io *tb_recompile_io)
+{
+    return tb_recompile_io->cpu_index;
+}
+
+uint32_t qemu_plugin_tb_recompile_io_next_tb_n(const struct qemu_plugin_tb_recompile_io *tb_recompile_io)
+{
+    return tb_recompile_io->next_tb_n;
+}
+
+uint64_t qemu_plugin_tb_recompile_io_tb_pc(const struct qemu_plugin_tb_recompile_io *tb_recompile_io)
+{
+    return tb_recompile_io->tb_pc;
+}
+
+uint64_t qemu_plugin_tb_recompile_io_cpu_pc(const struct qemu_plugin_tb_recompile_io *tb_recompile_io)
+{
+    return tb_recompile_io->cpu_pc;
 }
 
 struct qemu_plugin_insn *

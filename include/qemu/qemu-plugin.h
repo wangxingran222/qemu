@@ -228,6 +228,10 @@ struct qemu_plugin_tb;
 struct qemu_plugin_insn;
 /** struct qemu_plugin_scoreboard - Opaque handle for a scoreboard */
 struct qemu_plugin_scoreboard;
+/** struct qemu_plugin_tb_restore - Opaque handle for a translation block restore */
+struct qemu_plugin_tb_restore;
+/** struct qemu_plugin_tb_recompile_io - Opaque handle for a translation block recompile_io */
+struct qemu_plugin_tb_recompile_io;
 
 /**
  * typedef qemu_plugin_u64 - uint64_t member of an entry in a scoreboard
@@ -271,6 +275,17 @@ typedef void (*qemu_plugin_vcpu_tb_trans_cb_t)(qemu_plugin_id_t id,
                                                struct qemu_plugin_tb *tb);
 
 /**
+ * typedef qemu_plugin_vcpu_tb_restore_cb_t - restore callback
+ * @id: unique plugin id
+ * @tb_restore: opaque handle used for querying restore info.
+ */
+typedef void (*qemu_plugin_vcpu_tb_restore_cb_t)(qemu_plugin_id_t id,
+                                                 struct qemu_plugin_tb_restore *tb_restore);
+
+typedef void (*qemu_plugin_vcpu_tb_recompile_io_cb_t)(qemu_plugin_id_t id,
+                                                      struct qemu_plugin_tb_recompile_io *tb_recompile_io);
+
+/**
  * qemu_plugin_register_vcpu_tb_trans_cb() - register a translate cb
  * @id: plugin ID
  * @cb: callback function
@@ -285,6 +300,14 @@ typedef void (*qemu_plugin_vcpu_tb_trans_cb_t)(qemu_plugin_id_t id,
 QEMU_PLUGIN_API
 void qemu_plugin_register_vcpu_tb_trans_cb(qemu_plugin_id_t id,
                                            qemu_plugin_vcpu_tb_trans_cb_t cb);
+
+QEMU_PLUGIN_API
+void qemu_plugin_register_vcpu_tb_restore_cb(qemu_plugin_id_t id,
+                                             qemu_plugin_vcpu_tb_restore_cb_t cb);
+
+QEMU_PLUGIN_API
+void qemu_plugin_register_vcpu_tb_recompile_io_cb(qemu_plugin_id_t id,
+                                                  qemu_plugin_vcpu_tb_recompile_io_cb_t cb);
 
 /**
  * qemu_plugin_register_vcpu_tb_exec_cb() - register execution callback
@@ -377,6 +400,33 @@ size_t qemu_plugin_tb_n_insns(const struct qemu_plugin_tb *tb);
  */
 QEMU_PLUGIN_API
 uint64_t qemu_plugin_tb_vaddr(const struct qemu_plugin_tb *tb);
+
+QEMU_PLUGIN_API
+unsigned int qemu_plugin_tb_restore_cpu_index(const struct qemu_plugin_tb_restore *tb_restore);
+
+QEMU_PLUGIN_API
+int qemu_plugin_tb_restore_insns_left(const struct qemu_plugin_tb_restore *tb_restore);
+
+QEMU_PLUGIN_API
+size_t qemu_plugin_tb_restore_tb_n(const struct qemu_plugin_tb_restore *tb_restore);
+
+QEMU_PLUGIN_API
+uint64_t qemu_plugin_tb_restore_tb_pc(const struct qemu_plugin_tb_restore *tb_restore);
+
+QEMU_PLUGIN_API
+uint32_t qemu_plugin_tb_restore_tb_cflags(const struct qemu_plugin_tb_restore *tb_restore);
+
+QEMU_PLUGIN_API
+unsigned int qemu_plugin_tb_recompile_io_cpu_index(const struct qemu_plugin_tb_recompile_io *tb_recompile_io);
+
+QEMU_PLUGIN_API
+uint32_t qemu_plugin_tb_recompile_io_next_tb_n(const struct qemu_plugin_tb_recompile_io *tb_recompile_io);
+
+QEMU_PLUGIN_API
+uint64_t qemu_plugin_tb_recompile_io_tb_pc(const struct qemu_plugin_tb_recompile_io *tb_recompile_io);
+
+QEMU_PLUGIN_API
+uint64_t qemu_plugin_tb_recompile_io_cpu_pc(const struct qemu_plugin_tb_recompile_io *tb_recompile_io);
 
 /**
  * qemu_plugin_tb_get_insn() - retrieve handle for instruction

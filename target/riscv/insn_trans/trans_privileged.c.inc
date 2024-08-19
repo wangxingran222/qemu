@@ -130,3 +130,11 @@ static bool trans_sfence_vm(DisasContext *ctx, arg_sfence_vm *a)
 {
     return false;
 }
+
+static bool trans_nemu_trap(DisasContext *ctx, arg_nemu_trap *a)
+{
+#ifndef CONFIG_USER_ONLY
+    gen_helper_nemu_trap(tcg_env, cpu_gpr[10]);
+#endif
+    return true;
+}
